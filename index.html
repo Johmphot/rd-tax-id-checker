@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RD Tax ID Checker (live)</title>
+<style>
+html { color-scheme: light dark; }
+body { margin: 0; }
+/* Layout: one working column per step on phones; input + request on the left, reply + result on the right on desktop.
+   Palette: ink-teal neutrals; green = VAT-registered, amber = not found, red = invalid number. */
+:root {
+  --bg: #f3f6f5; --surface: #ffffff; --fg: #14282b; --muted: #5a6f72; --line: #d3dedc;
+  --accent: #0b6e6e; --accent-fg: #ffffff; --ok: #12703f; --ok-bg: #e0f3e8;
+  --warn: #8a5a00; --warn-bg: #fbefd0; --bad: #a42a2a; --bad-bg: #f9e0e0; --code-bg: #eaf0ef;
+  --font-body: "IBM Plex Sans Thai", system-ui, sans-serif; --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1a1c; --surface: #152427; --fg: #e3eeed; --muted: #92a9ab; --line: #28393c;
+  --accent: #4fc3c0; --accent-fg: #06211f; --ok: #6fd6a0; --ok-bg: #123a27;
+  --warn: #f0c260; --warn-bg: #3b2e0c; --bad: #f19a9a; --bad-bg: #3d1a1a; --code-bg: #101e20; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0e1a1c; --surface: #152427; --fg: #e3eeed; --muted: #92a9ab; --line: #28393c;
+  --accent: #4fc3c0; --accent-fg: #06211f; --ok: #6fd6a0; --ok-bg: #123a27;
+  --warn: #f0c260; --warn-bg: #3b2e0c; --bad: #f19a9a; --bad-bg: #3d1a1a; --code-bg: #101e20; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-size: 1.6rem; margin: 0 0 4px; font-weight: 600; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0 0 22px; max-width: 70ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 800px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-width: 0; }
+h2 { font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 12px; }
+label { display: block; font-weight: 500; margin-bottom: 6px; }
+.tin-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+input[type=text], textarea {
+  width: 100%; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+#tin { font-family: var(--font-mono); font-size: 1.35rem; letter-spacing: .06em; flex: 1 1 14rem; min-width: 0; width: auto; }
+textarea { font-family: var(--font-mono); font-size: .78rem; line-height: 1.45; min-height: 190px; resize: vertical; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; font-size: .82rem; font-weight: 500; white-space: nowrap; }
+.chip.idle { background: var(--code-bg); color: var(--muted); }
+.chip.ok { background: var(--ok-bg); color: var(--ok); }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.hint { color: var(--muted); font-size: .85rem; margin: 8px 0 0; }
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+.tab, .btn { font: inherit; font-size: .85rem; font-weight: 500; border-radius: 6px; padding: 7px 12px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.tab[aria-selected=true] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn:hover, .tab:hover { border-color: var(--accent); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; overflow-x: auto; font-family: var(--font-mono); font-size: .76rem; line-height: 1.5; }
+.endpoint { font-family: var(--font-mono); font-size: .76rem; color: var(--muted); word-break: break-all; margin: 0 0 8px; }
+.verdict { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.verdict .big { font-size: 1.15rem; font-weight: 600; }
+dl { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 8px 14px; margin: 0; }
+@media (max-width: 440px) { dl { grid-template-columns: minmax(0, 1fr); gap: 2px; } dd { margin-bottom: 8px !important; } }
+dt { color: var(--muted); font-size: .85rem; }
+dd { margin: 0; overflow-wrap: anywhere; }
+dd.mono { font-family: var(--font-mono); font-size: .9rem; font-variant-numeric: tabular-nums; }
+.rows { display: flex; flex-direction: column; gap: 14px; }
+.rows > section + section { border-top: 1px solid var(--line); padding-top: 14px; }
+.note { font-size: .82rem; color: var(--muted); margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.tag { font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); background: var(--warn-bg); padding: 2px 8px; border-radius: 4px; }
+.err { color: var(--bad); font-size: .88rem; margin-top: 8px; }
+.runrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.btn[disabled] { opacity: .55; cursor: progress; }
+.ver { color: var(--muted); font-size: .78rem; font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+<script src="config.js"></script>
+<div class="wrap">
+  <h1>RD Tax ID Checker</h1>
+  <p class="sub">Check a 13-digit Tax ID against the Revenue Department's VAT and TIN services, the check behind the partner Company setting. Runs through the local relay, so the answer is live. <span class="ver" id="ver"></span></p>
+
+  <div class="grid">
+    <div class="col">
+      <div class="panel">
+        <h2>1 · Tax ID</h2>
+        <label for="tin">Tax ID (13 digits)</label>
+        <div class="tin-row">
+          <input type="text" id="tin" inputmode="numeric" autocomplete="off" placeholder="0-0000-00000-00-0" maxlength="17" value="0-1075-53000-18-2">
+          <span id="tinChip" class="chip idle">Enter 13 digits</span>
+        </div>
+        <p class="hint" id="tinHint">The last digit is a check digit, so a mistyped number is caught here before any call to the Revenue Department.</p>
+      </div>
+
+      <div class="panel">
+        <h2>2 · Send this request</h2>
+        <div class="tabs" role="tablist" aria-label="Service">
+          <button class="tab" role="tab" id="tabVat" aria-selected="true" data-svc="vat">VAT Service</button>
+          <button class="tab" role="tab" id="tabTin" aria-selected="false" data-svc="tin">TIN Service</button>
+        </div>
+        <p class="hint" id="svcHint" style="margin:0 0 10px"></p>
+        <p class="endpoint" id="endpoint"></p>
+        <pre id="xml" tabindex="0"></pre>
+        <div class="actions">
+          <button class="btn primary" id="copyCurl" type="button">Copy as curl</button>
+          <button class="btn" id="copyXml" type="button">Copy XML only</button>
+        </div>
+        <p class="hint" id="copyMsg" aria-live="polite"></p>
+        <p class="hint">The username and password are both <code>anonymous</code>. Send from a server that has an SSL certificate installed (RD's requirement). Postman collection: <code>rd-vat-service.postman_collection.json</code>.</p>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="panel">
+        <h2>3 · Reply</h2>
+        <div class="runrow">
+          <button class="btn primary" id="run" type="button">Check with RD now</button>
+          <span class="hint" id="runMsg" style="margin:0" aria-live="polite">Uses the service selected in step 2.</span>
+        </div>
+        <label for="reply">SOAP reply from the Revenue Department</label>
+        <textarea id="reply" spellcheck="false" placeholder="Paste the XML reply here"></textarea>
+        <div class="actions">
+          <button class="btn" id="exVat" type="button">Example: registered</button>
+          <button class="btn" id="exNone" type="button">Example: not found</button>
+          <button class="btn" id="exTin" type="button">Example: TIN exists</button>
+          <button class="btn" id="clear" type="button">Clear</button>
+        </div>
+        <p id="exTag" style="margin:10px 0 0"></p>
+      </div>
+
+      <div class="panel" aria-live="polite">
+        <h2>Result</h2>
+        <div id="result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ENDPOINTS = {
+  vat: { url: "https://rdws.rd.go.th/serviceRD3/vatserviceRD3.asmx",
+         hint: "Is this Tax ID VAT-registered? Returns name, branch and address. This is the Company check." },
+  tin: { url: "https://rdws.rd.go.th/serviceRD3/checktinpinservice.asmx",
+         hint: "Does this Tax ID exist at all, VAT-registered or not? Useful for a Personal only partner that is a company without VAT." }
+};
+let svc = "vat";
+const $ = id => document.getElementById(id);
+
+function digits(s) { return s.replace(/\D/g, "").slice(0, 13); }
+function group(d) { // 1-4-5-2-1
+  const p = [d.slice(0,1), d.slice(1,5), d.slice(5,10), d.slice(10,12), d.slice(12,13)];
+  return p.filter(Boolean).join("-");
+}
+function checkDigitOk(d) {
+  if (d.length !== 13) return false;
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += Number(d[i]) * (13 - i);
+  return (11 - (sum % 11)) % 10 === Number(d[12]);
+}
+
+function buildXml(kind, tin) {
+  const t = tin || "0000000000000";
+  if (kind === "tin") return `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:chec="https://rdws.rd.go.th/serviceRD3/checktinpinservice">
+  <soap:Header/>
+  <soap:Body>
+    <chec:ServiceTIN>
+      <chec:username>anonymous</chec:username>
+      <chec:password>anonymous</chec:password>
+      <chec:TIN>${t}</chec:TIN>
+    </chec:ServiceTIN>
+  </soap:Body>
+</soap:Envelope>`;
+  return `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:vat="https://rdws.rd.go.th/serviceRD3/vatserviceRD3">
+  <soap:Header/>
+  <soap:Body>
+    <vat:Service>
+      <vat:username>anonymous</vat:username>
+      <vat:password>anonymous</vat:password>
+      <vat:TIN>${t}</vat:TIN>
+      <vat:Name></vat:Name>
+      <vat:ProvinceCode>0</vat:ProvinceCode>
+      <vat:BranchNumber>0</vat:BranchNumber>
+      <vat:AmphurCode>0</vat:AmphurCode>
+    </vat:Service>
+  </soap:Body>
+</soap:Envelope>`;
+}
+
+function renderRequest() {
+  const d = digits($("tin").value);
+  $("endpoint").textContent = "POST " + ENDPOINTS[svc].url;
+  $("svcHint").textContent = ENDPOINTS[svc].hint;
+  $("xml").textContent = buildXml(svc, d);
+  $("tabVat").setAttribute("aria-selected", svc === "vat");
+  $("tabTin").setAttribute("aria-selected", svc === "tin");
+}
+
+function renderChip() {
+  const d = digits($("tin").value), chip = $("tinChip");
+  if (d.length < 13) { chip.className = "chip idle"; chip.textContent = d.length ? `${d.length} of 13 digits` : "Enter 13 digits"; }
+  else if (checkDigitOk(d)) { chip.className = "chip ok"; chip.textContent = "Check digit valid"; }
+  else { chip.className = "chip bad"; chip.textContent = "Check digit wrong, recheck the number"; }
+}
+
+function curlText() {
+  return `curl -s -X POST '${ENDPOINTS[svc].url}' \\\n  -H 'Content-Type: application/soap+xml; charset=utf-8' \\\n  --data '${buildXml(svc, digits($("tin").value))}'`;
+}
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); $("copyMsg").textContent = "Copied."; }
+  catch (e) {
+    const r = document.createRange(); r.selectNodeContents($("xml")); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    $("copyMsg").textContent = "Copy is blocked here. The request is selected, press Ctrl/Cmd+C.";
+  }
+}
+
+/* ---- reply parsing ---- */
+function fieldValues(doc, name) { // every <name><anyType>value</anyType>…</name>, in order
+  const out = [];
+  doc.querySelectorAll("*").forEach(el => {
+    if (el.localName !== name) return;
+    const kids = [...el.children].filter(k => k.localName === "anyType");
+    if (!kids.length) out.push(""); else kids.forEach(k => out.push((k.textContent || "").trim()));
+  });
+  return out;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const real = v => v && v !== "-";
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function beDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || "");
+  if (!m) return s || "";
+  const be = Number(m[1]), ce = be - 543;
+  return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${ce} (B.E. ${be})`;
+}
+function plainMsg(s) { return s.replace(/<br\s*\/?>/gi, " ").replace(/&lt;br&gt;/gi, " ").replace(/\s+/g, " ").trim(); }
+
+function parseReply(text) {
+  const doc = new DOMParser().parseFromString(text, "application/xml");
+  if (doc.querySelector("parsererror")) return { error: "This isn't valid XML. Paste the full reply, starting at <?xml or <soap:Envelope." };
+  if ([...doc.querySelectorAll("*")].some(e => e.localName === "Fault"))
+    return { error: "The service returned a SOAP fault: " + esc(doc.documentElement.textContent.trim().slice(0, 300)) };
+  const isTin = [...doc.querySelectorAll("*")].some(e => e.localName === "ServiceTINResult" || e.localName === "ServiceTINArrResult");
+  const isVat = [...doc.querySelectorAll("*")].some(e => e.localName === "ServiceResult" || e.localName === "ServiceArrResult") && !isTin;
+  if (!isTin && !isVat) return { error: "No VAT or TIN result found in this reply." };
+  if (isTin) {
+    const id = fieldValues(doc, "vID"), ex = fieldValues(doc, "vIsExist"), dg = fieldValues(doc, "vDigitOk"), er = fieldValues(doc, "vMessageErr");
+    const n = Math.max(id.length, ex.length, 1);
+    return { kind: "tin", rows: Array.from({ length: n }, (_, i) => ({ id: id[i] || "", exists: ex[i] || "", digit: dg[i] || "", msg: er[i] || er[0] || "" })) };
+  }
+  const f = {};
+  ["vNID","vtitleName","vName","vSurname","vBranchTitleName","vBranchName","vBranchNumber","vBuildingName","vFloorNumber","vVillageName","vRoomNumber",
+   "vHouseNumber","vMooNumber","vSoiName","vStreetName","vThambol","vAmphur","vProvince","vPostCode","vBusinessFirstDate","vmsgerr"].forEach(k => f[k] = fieldValues(doc, k));
+  const n = Math.max(f.vNID.length, 1);
+  const rows = Array.from({ length: n }, (_, i) => { const r = {}; for (const k in f) r[k] = f[k][i] ?? (k === "vmsgerr" ? f[k][0] : "") ?? ""; return r; });
+  return { kind: "vat", rows };
+}
+
+function addressOf(r) {
+  const bits = [];
+  if (real(r.vHouseNumber)) bits.push(r.vHouseNumber);
+  if (real(r.vRoomNumber)) bits.push("Room " + r.vRoomNumber);
+  if (real(r.vFloorNumber)) bits.push("Floor " + r.vFloorNumber);
+  if (real(r.vBuildingName)) bits.push(r.vBuildingName);
+  if (real(r.vVillageName)) bits.push(r.vVillageName);
+  if (real(r.vMooNumber)) bits.push("Moo " + r.vMooNumber);
+  if (real(r.vSoiName)) bits.push("Soi " + r.vSoiName);
+  if (real(r.vStreetName)) bits.push("Road " + r.vStreetName);
+  if (real(r.vThambol)) bits.push(r.vThambol);
+  if (real(r.vAmphur)) bits.push(r.vAmphur);
+  if (real(r.vProvince)) bits.push(r.vProvince);
+  if (real(r.vPostCode)) bits.push(r.vPostCode);
+  return bits.join(" ");
+}
+function dl(pairs) {
+  return "<dl>" + pairs.filter(p => p[1] !== "" && p[1] != null).map(([k, v, m]) => `<dt>${k}</dt><dd${m ? ' class="mono"' : ""}>${esc(v)}</dd>`).join("") + "</dl>";
+}
+
+function renderResult() {
+  const box = $("result"), text = $("reply").value.trim();
+  if (!text) { box.innerHTML = '<p class="hint" style="margin:0">Paste a reply in step 3, or load an example, to see it read out here.</p>'; return; }
+  const res = parseReply(text);
+  if (res.error) { box.innerHTML = `<p class="err" style="margin:0">${res.error}</p>`; return; }
+  const typed = digits($("tin").value);
+  let html = '<div class="rows">';
+  if (res.kind === "vat") {
+    res.rows.forEach(r => {
+      const found = !!r.vNID;
+      const msg = plainMsg(r.vmsgerr || "");
+      const branch = r.vBranchNumber !== "" ? String(r.vBranchNumber).padStart(5, "0") : "";
+      html += "<section>";
+      if (found) {
+        html += `<div class="verdict"><span class="chip ok">VAT-registered</span><span class="big">${esc(r.vBranchName || r.vName)}</span></div>`;
+        html += dl([
+          ["Tax ID", group(r.vNID), true],
+          ["Registered name", [r.vtitleName, r.vName].filter(real).join(" ")],
+          ["Branch", branch === "00000" ? "00000 (head office)" : branch, true],
+          ["Address", addressOf(r)],
+          ["VAT registered since", beDate(r.vBusinessFirstDate)]
+        ]);
+        if (typed.length === 13 && typed !== r.vNID) html += `<p class="err">This reply is for ${esc(group(r.vNID))}, not the number typed above.</p>`;
+      } else {
+        html += `<div class="verdict"><span class="chip warn">Not found</span><span class="big">Not VAT-registered, or the number is wrong</span></div>`;
+        html += `<p class="hint" style="margin:0">The service answers with success and empty fields${msg ? ": " + esc(msg) : ""}. Recheck the number; if it is right, this business is not a VAT registrant, so it is not a Company for the Tax Invoice setting.</p>`;
+      }
+      html += "</section>";
+    });
+  } else {
+    res.rows.forEach(r => {
+      const yes = r.exists === "Yes";
+      html += "<section>";
+      html += `<div class="verdict"><span class="chip ${yes ? "ok" : "warn"}">${yes ? "Tax ID exists" : "Not found"}</span><span class="big">${yes ? "On file with the Revenue Department" : "No record for this number"}</span></div>`;
+      html += dl([["Tax ID", r.id ? group(r.id) : "", true], ["Check digit", r.digit === "True" ? "Valid" : r.digit === "False" ? "Invalid" : ""], ["Message", plainMsg(r.msg)]]);
+      html += `<p class="hint">This service does not say whether the business is VAT-registered. Use the VAT Service for that.</p>`;
+      html += "</section>";
+    });
+  }
+  html += "</div>";
+  html += '<p class="note">A result is true on the day of the check. A VAT registration can lapse later, and the service has no stated uptime, so do not block saving a partner if the call fails.</p>';
+  box.innerHTML = html;
+}
+
+/* ---- examples (replies captured from the live service on 22 Oct 2026) ---- */
+const HEAD = '<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soap:Body>';
+const T = "</soap:Body></soap:Envelope>";
+const s = (n, v) => `<${n}><anyType xsi:type="xsd:string">${v}</anyType></${n}>`;
+const EX = {
+  vat: HEAD + '<ServiceResponse xmlns="https://rdws.rd.go.th/serviceRD3/vatserviceRD3"><ServiceResult>' +
+    s("vNID","0107553000182") + "<vtin />" + s("vtitleName","บริษัท") + s("vName","สกาย ไอซีที จำกัด (มหาชน)") + s("vSurname","-") +
+    s("vBranchTitleName","บริษัท") + s("vBranchName","สกาย ไอซีที จำกัด (มหาชน)") + '<vBranchNumber><anyType xsi:type="xsd:int">0</anyType></vBranchNumber>' +
+    s("vBuildingName","เอ.เอ. แคปปิตอล รัชดา") + s("vFloorNumber","6-7") + s("vVillageName","-") + s("vRoomNumber","-") + s("vHouseNumber","55") +
+    s("vMooNumber","-") + s("vSoiName","-") + s("vStreetName","รัชดาภิเษก") + s("vThambol","ดินแดง") + s("vAmphur","ดินแดง") + s("vProvince","กรุงเทพมหานคร") +
+    s("vPostCode","10400") + s("vBusinessFirstDate","2540-05-28") + s("vYaek","-") + "<vmsgerr />" + "</ServiceResult></ServiceResponse>" + T,
+  none: HEAD + '<ServiceResponse xmlns="https://rdws.rd.go.th/serviceRD3/vatserviceRD3"><ServiceResult><vNID /><vtin /><vtitleName /><vName /><vSurname /><vBranchTitleName /><vBranchName /><vBranchNumber /><vBuildingName /><vFloorNumber /><vVillageName /><vRoomNumber /><vHouseNumber /><vMooNumber /><vSoiName /><vStreetName /><vThambol /><vAmphur /><vProvince /><vPostCode /><vBusinessFirstDate /><vYaek />' +
+    s("vmsgerr","ไม่พบข้อมูลที่ต้องการค้นหา &lt;br&gt; Data not found ") + "</ServiceResult></ServiceResponse>" + T,
+  tin: HEAD + '<ServiceTINResponse xmlns="https://rdws.rd.go.th/serviceRD3/checktinpinservice"><ServiceTINResult><vMessageErr />' +
+    s("vID","0107553000182") + s("vDigitOk","True") + s("vIsExist","Yes") + "</ServiceTINResult></ServiceTINResponse>" + T
+};
+function load(key, label) {
+  $("reply").value = EX[key];
+  $("exTag").innerHTML = `<span class="tag">Example reply</span> <span class="hint">${label}</span>`;
+  renderResult();
+}
+
+$("tin").addEventListener("input", e => {
+  const d = digits(e.target.value); e.target.value = group(d);
+  renderChip(); renderRequest(); renderResult();
+});
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => { svc = b.dataset.svc; renderRequest(); }));
+$("copyCurl").addEventListener("click", () => copy(curlText()));
+$("copyXml").addEventListener("click", () => copy(buildXml(svc, digits($("tin").value))));
+$("reply").addEventListener("input", () => { $("exTag").innerHTML = ""; renderResult(); });
+$("exVat").addEventListener("click", () => load("vat", "VAT Service reply for 0107553000182, captured 22 Oct 2026."));
+$("exNone").addEventListener("click", () => load("none", "VAT Service reply for a number that is not registered, captured 22 Oct 2026."));
+$("exTin").addEventListener("click", () => load("tin", "TIN Service reply for 0107553000182, captured 22 Oct 2026."));
+$("clear").addEventListener("click", () => { $("reply").value = ""; $("exTag").innerHTML = ""; renderResult(); });
+
+const APP_VERSION = "1.1.0";
+// "" = same host (local relay). On GitHub Pages, config.js sets window.RD_API_BASE to the Worker's address.
+const API_BASE = (window.RD_API_BASE || "").replace(/\/$/, "");
+$("ver").textContent = "v" + APP_VERSION;
+
+$("run").addEventListener("click", async () => {
+  const d = digits($("tin").value), msg = $("runMsg"), btn = $("run");
+  if (d.length !== 13) { msg.textContent = "Enter all 13 digits first."; return; }
+  if (!checkDigitOk(d)) { msg.textContent = "The check digit is wrong, so RD would not find this number. Recheck it."; return; }
+  btn.disabled = true; msg.textContent = "Asking the Revenue Department…";
+  try {
+    const r = await fetch(`${API_BASE}/api/check?svc=${svc}&tin=${d}`);
+    const body = await r.text();
+    if (r.status === 429) throw new Error("Too many checks at once. Wait a second and try again.");
+    if (!r.ok) { let m = body; try { m = JSON.parse(body).error; } catch (e) {} throw new Error(m); }
+    $("reply").value = body;
+    $("exTag").innerHTML = `<span class="tag">Live</span> <span class="hint">${svc === "vat" ? "VAT" : "TIN"} Service, ${new Date().toLocaleString()}</span>`;
+    renderResult();
+    msg.textContent = "Done.";
+  } catch (e) {
+    msg.textContent = (e instanceof TypeError ? (API_BASE ? "Could not reach the checking service. Try again in a moment. " : "Could not reach the relay. Is relay.mjs running? ") : "") + (e.message || "");
+  } finally { btn.disabled = false; }
+});
+
+renderChip(); renderRequest(); load("vat", "VAT Service reply for 0107553000182, captured 22 Oct 2026.");
+</script>
+</body>
+</html>
