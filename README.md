@@ -9,7 +9,13 @@ Spec: https://www.rd.go.th/42535.html (public login `anonymous` / `anonymous`).
 
 **Live page:** https://johmphot.github.io/rd-tax-id-checker/
 
-## What's new (v1.1.0)
+## What's new (v1.2.0)
+
+- Simpler page: type the Tax ID, choose what you want to know ("Is it VAT-registered?" or "Does the Tax ID exist?"), press **Check with RD**, read the result.
+- The request, the raw reply box, the examples and the version moved behind the **Advanced mode** switch (remembered per browser).
+- A result clears when the Tax ID is edited, and Enter in the Tax ID box runs the check.
+
+## v1.1.0
 
 - Hosted version: the page on GitHub Pages calls a small Cloudflare Worker that forwards to the Revenue Department.
 - Rate limit: 3 checks per second per client, in the Worker and in the local relay.

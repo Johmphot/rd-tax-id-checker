@@ -5,41 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RD Tax ID Checker (live)</title>
 <style>
-html { color-scheme: light dark; }
-body { margin: 0; }
-/* Layout: one working column per step on phones; input + request on the left, reply + result on the right on desktop.
+/* Layout: one narrow column (Tax ID, question, button, result); everything technical sits behind the Advanced mode switch.
    Palette: ink-teal neutrals; green = VAT-registered, amber = not found, red = invalid number. */
 :root {
   --bg: #f3f6f5; --surface: #ffffff; --fg: #14282b; --muted: #5a6f72; --line: #d3dedc;
-  --accent: #0b6e6e; --accent-fg: #ffffff; --ok: #12703f; --ok-bg: #e0f3e8;
+  --accent: #0b6e6e; --accent-fg: #ffffff; --accent-soft: #e3f1f0; --ok: #12703f; --ok-bg: #e0f3e8;
   --warn: #8a5a00; --warn-bg: #fbefd0; --bad: #a42a2a; --bad-bg: #f9e0e0; --code-bg: #eaf0ef;
-  --font-body: "IBM Plex Sans Thai", system-ui, sans-serif; --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --font-body: "IBM Plex Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif; --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0e1a1c; --surface: #152427; --fg: #e3eeed; --muted: #92a9ab; --line: #28393c;
-  --accent: #4fc3c0; --accent-fg: #06211f; --ok: #6fd6a0; --ok-bg: #123a27;
+  --accent: #4fc3c0; --accent-fg: #06211f; --accent-soft: #173438; --ok: #6fd6a0; --ok-bg: #123a27;
   --warn: #f0c260; --warn-bg: #3b2e0c; --bad: #f19a9a; --bad-bg: #3d1a1a; --code-bg: #101e20; color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #0e1a1c; --surface: #152427; --fg: #e3eeed; --muted: #92a9ab; --line: #28393c;
-  --accent: #4fc3c0; --accent-fg: #06211f; --ok: #6fd6a0; --ok-bg: #123a27;
+  --accent: #4fc3c0; --accent-fg: #06211f; --accent-soft: #173438; --ok: #6fd6a0; --ok-bg: #123a27;
   --warn: #f0c260; --warn-bg: #3b2e0c; --bad: #f19a9a; --bad-bg: #3d1a1a; --code-bg: #101e20; color-scheme: dark; }
+html { color-scheme: light dark; }
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
-.wrap { max-width: 1080px; margin: 0 auto; padding-block: 28px 48px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-h1 { font-size: 1.6rem; margin: 0 0 4px; font-weight: 600; text-wrap: balance; }
-.sub { color: var(--muted); margin: 0 0 22px; max-width: 70ch; }
-.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-@media (max-width: 800px) { .grid { grid-template-columns: minmax(0, 1fr); } }
-.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+[hidden] { display: none !important; }
+.wrap { max-width: 680px; margin: 0 auto; padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 16px; }
+.head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px 20px; flex-wrap: wrap; }
+h1 { font-size: 1.55rem; margin: 0; font-weight: 600; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-width: 0; }
 h2 { font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 12px; }
-label { display: block; font-weight: 500; margin-bottom: 6px; }
+label, legend { font-weight: 500; }
+label.field { display: block; margin-bottom: 6px; }
 .tin-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-input[type=text], textarea {
-  width: 100%; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
-#tin { font-family: var(--font-mono); font-size: 1.35rem; letter-spacing: .06em; flex: 1 1 14rem; min-width: 0; width: auto; }
-textarea { font-family: var(--font-mono); font-size: .78rem; line-height: 1.45; min-height: 190px; resize: vertical; }
+input[type=text], textarea { width: 100%; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+#tin { font-family: var(--font-mono); font-size: clamp(.95rem, 5.4vw, 1.4rem); letter-spacing: .03em; flex: 1 1 12rem; min-width: 0; width: auto; }
+textarea { font-family: var(--font-mono); font-size: .78rem; line-height: 1.45; min-height: 170px; resize: vertical; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; font-size: .82rem; font-weight: 500; white-space: nowrap; }
 .chip.idle { background: var(--code-bg); color: var(--muted); }
@@ -47,14 +45,28 @@ textarea { font-family: var(--font-mono); font-size: .78rem; line-height: 1.45; 
 .chip.bad { background: var(--bad-bg); color: var(--bad); }
 .chip.warn { background: var(--warn-bg); color: var(--warn); }
 .hint { color: var(--muted); font-size: .85rem; margin: 8px 0 0; }
-.tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
-.tab, .btn { font: inherit; font-size: .85rem; font-weight: 500; border-radius: 6px; padding: 7px 12px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
-.tab[aria-selected=true] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.btn:hover, .tab:hover { border-color: var(--accent); }
+fieldset { border: 0; padding: 0; margin: 18px 0 0; min-width: 0; }
+legend { padding: 0; margin-bottom: 8px; }
+.choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 10px; }
+.opt { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; background: var(--bg); }
+.opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.opt input { margin-top: 4px; accent-color: var(--accent); }
+.opt b { display: block; font-weight: 600; }
+.opt small { display: block; color: var(--muted); font-size: .82rem; line-height: 1.4; margin-top: 2px; }
+.runrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
+.btn, .tab { font: inherit; font-size: .88rem; font-weight: 500; border-radius: 6px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-size: 1rem; padding: 11px 22px; font-weight: 600; }
+.btn[disabled] { opacity: .55; cursor: progress; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; overflow-x: auto; font-family: var(--font-mono); font-size: .76rem; line-height: 1.5; }
-.endpoint { font-family: var(--font-mono); font-size: .76rem; color: var(--muted); word-break: break-all; margin: 0 0 8px; }
+.msg { color: var(--muted); font-size: .88rem; }
+.switch { display: inline-flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--muted); cursor: pointer; padding-top: 6px; }
+.switch input { appearance: none; width: 34px; height: 20px; border-radius: 99px; background: var(--line); position: relative; margin: 0; cursor: pointer; transition: background .15s; }
+.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 1px rgba(0,0,0,.15); transition: transform .15s; }
+.switch input:checked { background: var(--accent); }
+.switch input:checked::after { transform: translateX(14px); }
+@media (prefers-reduced-motion: reduce) { .switch input, .switch input::after { transition: none; } }
+.rhead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .verdict { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .verdict .big { font-size: 1.15rem; font-weight: 600; }
 dl { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 8px 14px; margin: 0; }
@@ -67,82 +79,88 @@ dd.mono { font-family: var(--font-mono); font-size: .9rem; font-variant-numeric:
 .note { font-size: .82rem; color: var(--muted); margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
 .tag { font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); background: var(--warn-bg); padding: 2px 8px; border-radius: 4px; }
 .err { color: var(--bad); font-size: .88rem; margin-top: 8px; }
-.runrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-.btn[disabled] { opacity: .55; cursor: progress; }
-.ver { color: var(--muted); font-size: .78rem; font-family: var(--font-mono); }
+pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; overflow-x: auto; font-family: var(--font-mono); font-size: .76rem; line-height: 1.5; }
+.endpoint { font-family: var(--font-mono); font-size: .76rem; color: var(--muted); word-break: break-all; margin: 0 0 8px; }
+.adv { display: flex; flex-direction: column; gap: 16px; }
+.ver { color: var(--muted); font-size: .78rem; font-family: var(--font-mono); text-align: center; }
 </style>
 </head>
 <body>
 <script src="config.js"></script>
 <div class="wrap">
-  <h1>RD Tax ID Checker</h1>
-  <p class="sub">Check a 13-digit Tax ID against the Revenue Department's VAT and TIN services, the check behind the partner Company setting. Runs through the local relay, so the answer is live. <span class="ver" id="ver"></span></p>
+  <div class="head">
+    <div>
+      <h1>RD Tax ID Checker</h1>
+      <p class="sub">Look up a Thai Tax ID at the Revenue Department.</p>
+    </div>
+    <label class="switch" for="adv"><input type="checkbox" id="adv"> Advanced mode</label>
+  </div>
 
-  <div class="grid">
-    <div class="col">
-      <div class="panel">
-        <h2>1 · Tax ID</h2>
-        <label for="tin">Tax ID (13 digits)</label>
-        <div class="tin-row">
-          <input type="text" id="tin" inputmode="numeric" autocomplete="off" placeholder="0-0000-00000-00-0" maxlength="17" value="0-1075-53000-18-2">
-          <span id="tinChip" class="chip idle">Enter 13 digits</span>
-        </div>
-        <p class="hint" id="tinHint">The last digit is a check digit, so a mistyped number is caught here before any call to the Revenue Department.</p>
-      </div>
-
-      <div class="panel">
-        <h2>2 · Send this request</h2>
-        <div class="tabs" role="tablist" aria-label="Service">
-          <button class="tab" role="tab" id="tabVat" aria-selected="true" data-svc="vat">VAT Service</button>
-          <button class="tab" role="tab" id="tabTin" aria-selected="false" data-svc="tin">TIN Service</button>
-        </div>
-        <p class="hint" id="svcHint" style="margin:0 0 10px"></p>
-        <p class="endpoint" id="endpoint"></p>
-        <pre id="xml" tabindex="0"></pre>
-        <div class="actions">
-          <button class="btn primary" id="copyCurl" type="button">Copy as curl</button>
-          <button class="btn" id="copyXml" type="button">Copy XML only</button>
-        </div>
-        <p class="hint" id="copyMsg" aria-live="polite"></p>
-        <p class="hint">The username and password are both <code>anonymous</code>. Send from a server that has an SSL certificate installed (RD's requirement). Postman collection: <code>rd-vat-service.postman_collection.json</code>.</p>
-      </div>
+  <div class="panel">
+    <label class="field" for="tin">Tax ID (13 digits)</label>
+    <div class="tin-row">
+      <input type="text" id="tin" inputmode="numeric" autocomplete="off" placeholder="0-0000-00000-00-0" maxlength="17" value="0-1075-53000-18-2">
+      <span id="tinChip" class="chip idle">Enter 13 digits</span>
     </div>
 
-    <div class="col">
-      <div class="panel">
-        <h2>3 · Reply</h2>
-        <div class="runrow">
-          <button class="btn primary" id="run" type="button">Check with RD now</button>
-          <span class="hint" id="runMsg" style="margin:0" aria-live="polite">Uses the service selected in step 2.</span>
-        </div>
-        <label for="reply">SOAP reply from the Revenue Department</label>
-        <textarea id="reply" spellcheck="false" placeholder="Paste the XML reply here"></textarea>
-        <div class="actions">
-          <button class="btn" id="exVat" type="button">Example: registered</button>
-          <button class="btn" id="exNone" type="button">Example: not found</button>
-          <button class="btn" id="exTin" type="button">Example: TIN exists</button>
-          <button class="btn" id="clear" type="button">Clear</button>
-        </div>
-        <p id="exTag" style="margin:10px 0 0"></p>
+    <fieldset>
+      <legend>What do you want to know?</legend>
+      <div class="choices">
+        <label class="opt"><input type="radio" name="svc" value="vat" checked><span><b>Is it VAT-registered?</b><small>Registered name, branch and address. Use this to confirm a Company.</small></span></label>
+        <label class="opt"><input type="radio" name="svc" value="tin"><span><b>Does the Tax ID exist?</b><small>Only whether the number is on file, VAT-registered or not.</small></span></label>
       </div>
+    </fieldset>
 
-      <div class="panel" aria-live="polite">
-        <h2>Result</h2>
-        <div id="result"></div>
+    <div class="runrow">
+      <button class="btn primary" id="run" type="button">Check with RD</button>
+      <span class="msg" id="runMsg" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <div class="panel" aria-live="polite">
+    <div class="rhead"><h2>Result</h2><span id="srcTag"></span></div>
+    <div id="result"></div>
+  </div>
+
+  <div class="adv" id="advBox" hidden>
+    <div class="panel">
+      <h2>Request sent to RD</h2>
+      <p class="endpoint" id="endpoint"></p>
+      <pre id="xml" tabindex="0"></pre>
+      <div class="actions">
+        <button class="btn" id="copyCurl" type="button">Copy as curl</button>
+        <button class="btn" id="copyXml" type="button">Copy XML only</button>
+      </div>
+      <p class="hint" id="copyMsg" aria-live="polite"></p>
+      <p class="hint">Login is <code>anonymous</code> / <code>anonymous</code>. Calls go through this page's relay, which allows 3 checks per second.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Reply from RD</h2>
+      <label class="field" for="reply">Raw SOAP reply. Paste one here to read it without calling RD.</label>
+      <textarea id="reply" spellcheck="false" placeholder="Paste the XML reply here"></textarea>
+      <div class="actions">
+        <button class="btn" id="exVat" type="button">Example: registered</button>
+        <button class="btn" id="exNone" type="button">Example: not found</button>
+        <button class="btn" id="exTin" type="button">Example: TIN exists</button>
+        <button class="btn" id="clear" type="button">Clear</button>
       </div>
     </div>
+    <p class="ver" id="ver"></p>
   </div>
 </div>
 
 <script>
+const APP_VERSION = "1.2.0";
+// "" = same host (local relay). On GitHub Pages, config.js sets window.RD_API_BASE to the Worker's address.
+const API_BASE = (window.RD_API_BASE || "").replace(/\/$/, "");
 const ENDPOINTS = {
-  vat: { url: "https://rdws.rd.go.th/serviceRD3/vatserviceRD3.asmx",
-         hint: "Is this Tax ID VAT-registered? Returns name, branch and address. This is the Company check." },
-  tin: { url: "https://rdws.rd.go.th/serviceRD3/checktinpinservice.asmx",
-         hint: "Does this Tax ID exist at all, VAT-registered or not? Useful for a Personal only partner that is a company without VAT." }
+  vat: "https://rdws.rd.go.th/serviceRD3/vatserviceRD3.asmx",
+  tin: "https://rdws.rd.go.th/serviceRD3/checktinpinservice.asmx"
 };
-let svc = "vat";
 const $ = id => document.getElementById(id);
+const svc = () => document.querySelector('input[name="svc"]:checked').value;
+let source = "example"; // example | live | pasted
 
 function digits(s) { return s.replace(/\D/g, "").slice(0, 13); }
 function group(d) { // 1-4-5-2-1
@@ -185,12 +203,8 @@ function buildXml(kind, tin) {
 }
 
 function renderRequest() {
-  const d = digits($("tin").value);
-  $("endpoint").textContent = "POST " + ENDPOINTS[svc].url;
-  $("svcHint").textContent = ENDPOINTS[svc].hint;
-  $("xml").textContent = buildXml(svc, d);
-  $("tabVat").setAttribute("aria-selected", svc === "vat");
-  $("tabTin").setAttribute("aria-selected", svc === "tin");
+  $("endpoint").textContent = "POST " + ENDPOINTS[svc()];
+  $("xml").textContent = buildXml(svc(), digits($("tin").value));
 }
 
 function renderChip() {
@@ -201,7 +215,7 @@ function renderChip() {
 }
 
 function curlText() {
-  return `curl -s -X POST '${ENDPOINTS[svc].url}' \\\n  -H 'Content-Type: application/soap+xml; charset=utf-8' \\\n  --data '${buildXml(svc, digits($("tin").value))}'`;
+  return `curl -s -X POST '${ENDPOINTS[svc()]}' \\\n  -H 'Content-Type: application/soap+xml; charset=utf-8' \\\n  --data '${buildXml(svc(), digits($("tin").value))}'`;
 }
 async function copy(text) {
   try { await navigator.clipboard.writeText(text); $("copyMsg").textContent = "Copied."; }
@@ -273,9 +287,14 @@ function dl(pairs) {
   return "<dl>" + pairs.filter(p => p[1] !== "" && p[1] != null).map(([k, v, m]) => `<dt>${k}</dt><dd${m ? ' class="mono"' : ""}>${esc(v)}</dd>`).join("") + "</dl>";
 }
 
+function setTag() {
+  $("srcTag").innerHTML = source === "example" ? '<span class="tag">Example</span>' : "";
+}
+
 function renderResult() {
   const box = $("result"), text = $("reply").value.trim();
-  if (!text) { box.innerHTML = '<p class="hint" style="margin:0">Paste a reply in step 3, or load an example, to see it read out here.</p>'; return; }
+  setTag();
+  if (!text) { box.innerHTML = '<p class="hint" style="margin:0">Type a Tax ID and press Check with RD.</p>'; return; }
   const res = parseReply(text);
   if (res.error) { box.innerHTML = `<p class="err" style="margin:0">${res.error}</p>`; return; }
   const typed = digits($("tin").value);
@@ -295,7 +314,7 @@ function renderResult() {
           ["Address", addressOf(r)],
           ["VAT registered since", beDate(r.vBusinessFirstDate)]
         ]);
-        if (typed.length === 13 && typed !== r.vNID) html += `<p class="err">This reply is for ${esc(group(r.vNID))}, not the number typed above.</p>`;
+        if (source === "pasted" && typed.length === 13 && typed !== r.vNID) html += `<p class="err">This reply is for ${esc(group(r.vNID))}, not the number typed above.</p>`;
       } else {
         html += `<div class="verdict"><span class="chip warn">Not found</span><span class="big">Not VAT-registered, or the number is wrong</span></div>`;
         html += `<p class="hint" style="margin:0">The service answers with success and empty fields${msg ? ": " + esc(msg) : ""}. Recheck the number; if it is right, this business is not a VAT registrant, so it is not a Company for the Tax Invoice setting.</p>`;
@@ -308,12 +327,12 @@ function renderResult() {
       html += "<section>";
       html += `<div class="verdict"><span class="chip ${yes ? "ok" : "warn"}">${yes ? "Tax ID exists" : "Not found"}</span><span class="big">${yes ? "On file with the Revenue Department" : "No record for this number"}</span></div>`;
       html += dl([["Tax ID", r.id ? group(r.id) : "", true], ["Check digit", r.digit === "True" ? "Valid" : r.digit === "False" ? "Invalid" : ""], ["Message", plainMsg(r.msg)]]);
-      html += `<p class="hint">This service does not say whether the business is VAT-registered. Use the VAT Service for that.</p>`;
+      html += `<p class="hint">This does not say whether the business is VAT-registered. Choose "Is it VAT-registered?" for that.</p>`;
       html += "</section>";
     });
   }
   html += "</div>";
-  html += '<p class="note">A result is true on the day of the check. A VAT registration can lapse later, and the service has no stated uptime, so do not block saving a partner if the call fails.</p>';
+  html += '<p class="note">A result is true on the day of the check. A VAT registration can lapse later, and the service has no stated uptime, so do not block anything on a failed call.</p>';
   box.innerHTML = html;
 }
 
@@ -333,50 +352,51 @@ const EX = {
   tin: HEAD + '<ServiceTINResponse xmlns="https://rdws.rd.go.th/serviceRD3/checktinpinservice"><ServiceTINResult><vMessageErr />' +
     s("vID","0107553000182") + s("vDigitOk","True") + s("vIsExist","Yes") + "</ServiceTINResult></ServiceTINResponse>" + T
 };
-function load(key, label) {
-  $("reply").value = EX[key];
-  $("exTag").innerHTML = `<span class="tag">Example reply</span> <span class="hint">${label}</span>`;
-  renderResult();
-}
+function loadExample(key) { $("reply").value = EX[key]; source = "example"; renderResult(); }
 
-$("tin").addEventListener("input", e => {
-  const d = digits(e.target.value); e.target.value = group(d);
-  renderChip(); renderRequest(); renderResult();
-});
-document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => { svc = b.dataset.svc; renderRequest(); }));
-$("copyCurl").addEventListener("click", () => copy(curlText()));
-$("copyXml").addEventListener("click", () => copy(buildXml(svc, digits($("tin").value))));
-$("reply").addEventListener("input", () => { $("exTag").innerHTML = ""; renderResult(); });
-$("exVat").addEventListener("click", () => load("vat", "VAT Service reply for 0107553000182, captured 22 Oct 2026."));
-$("exNone").addEventListener("click", () => load("none", "VAT Service reply for a number that is not registered, captured 22 Oct 2026."));
-$("exTin").addEventListener("click", () => load("tin", "TIN Service reply for 0107553000182, captured 22 Oct 2026."));
-$("clear").addEventListener("click", () => { $("reply").value = ""; $("exTag").innerHTML = ""; renderResult(); });
-
-const APP_VERSION = "1.1.0";
-// "" = same host (local relay). On GitHub Pages, config.js sets window.RD_API_BASE to the Worker's address.
-const API_BASE = (window.RD_API_BASE || "").replace(/\/$/, "");
-$("ver").textContent = "v" + APP_VERSION;
-
-$("run").addEventListener("click", async () => {
+/* ---- the check ---- */
+async function runCheck() {
   const d = digits($("tin").value), msg = $("runMsg"), btn = $("run");
   if (d.length !== 13) { msg.textContent = "Enter all 13 digits first."; return; }
   if (!checkDigitOk(d)) { msg.textContent = "The check digit is wrong, so RD would not find this number. Recheck it."; return; }
   btn.disabled = true; msg.textContent = "Asking the Revenue Department…";
   try {
-    const r = await fetch(`${API_BASE}/api/check?svc=${svc}&tin=${d}`);
+    const r = await fetch(`${API_BASE}/api/check?svc=${svc()}&tin=${d}`);
     const body = await r.text();
     if (r.status === 429) throw new Error("Too many checks at once. Wait a second and try again.");
     if (!r.ok) { let m = body; try { m = JSON.parse(body).error; } catch (e) {} throw new Error(m); }
-    $("reply").value = body;
-    $("exTag").innerHTML = `<span class="tag">Live</span> <span class="hint">${svc === "vat" ? "VAT" : "TIN"} Service, ${new Date().toLocaleString()}</span>`;
-    renderResult();
-    msg.textContent = "Done.";
+    $("reply").value = body; source = "live"; renderResult();
+    msg.textContent = "Checked " + new Date().toLocaleTimeString();
   } catch (e) {
     msg.textContent = (e instanceof TypeError ? (API_BASE ? "Could not reach the checking service. Try again in a moment. " : "Could not reach the relay. Is relay.mjs running? ") : "") + (e.message || "");
   } finally { btn.disabled = false; }
-});
+}
 
-renderChip(); renderRequest(); load("vat", "VAT Service reply for 0107553000182, captured 22 Oct 2026.");
+/* ---- wiring ---- */
+$("tin").addEventListener("input", e => {
+  e.target.value = group(digits(e.target.value));
+  renderChip(); renderRequest();
+  if (source !== "pasted") { $("reply").value = ""; $("runMsg").textContent = ""; renderResult(); } // the old result is for another number
+});
+$("tin").addEventListener("keydown", e => { if (e.key === "Enter") runCheck(); });
+document.querySelectorAll('input[name="svc"]').forEach(r => r.addEventListener("change", renderRequest));
+$("run").addEventListener("click", runCheck);
+$("copyCurl").addEventListener("click", () => copy(curlText()));
+$("copyXml").addEventListener("click", () => copy(buildXml(svc(), digits($("tin").value))));
+$("reply").addEventListener("input", () => { source = "pasted"; renderResult(); });
+$("exVat").addEventListener("click", () => loadExample("vat"));
+$("exNone").addEventListener("click", () => loadExample("none"));
+$("exTin").addEventListener("click", () => loadExample("tin"));
+$("clear").addEventListener("click", () => { $("reply").value = ""; source = "pasted"; renderResult(); });
+
+$("adv").addEventListener("change", e => {
+  $("advBox").hidden = !e.target.checked;
+  try { localStorage.setItem("rdAdvanced", e.target.checked ? "1" : "0"); } catch (err) {}
+});
+try { if (localStorage.getItem("rdAdvanced") === "1") { $("adv").checked = true; $("advBox").hidden = false; } } catch (err) {}
+
+$("ver").textContent = "v" + APP_VERSION + " · " + (API_BASE || "this host") + " · spec rd.go.th/42535";
+renderChip(); renderRequest(); loadExample("vat");
 </script>
 </body>
 </html>
