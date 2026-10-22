@@ -141,6 +141,7 @@ pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; 
       <textarea id="reply" spellcheck="false" placeholder="Paste the XML reply here"></textarea>
       <div class="actions">
         <button class="btn" id="exVat" type="button">Example: registered</button>
+        <button class="btn" id="exBranch" type="button">Example: branch office</button>
         <button class="btn" id="exNone" type="button">Example: not found</button>
         <button class="btn" id="exTin" type="button">Example: TIN exists</button>
         <button class="btn" id="clear" type="button">Clear</button>
@@ -151,7 +152,7 @@ pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; 
 </div>
 
 <script>
-const APP_VERSION = "1.2.1";
+const APP_VERSION = "1.2.2";
 // "" = same host (local relay). On GitHub Pages, config.js sets window.RD_API_BASE to the Worker's address.
 const API_BASE = (window.RD_API_BASE || "").replace(/\/$/, "");
 const ENDPOINTS = {
@@ -309,11 +310,14 @@ function renderResult() {
       const branch = r.vBranchNumber !== "" ? String(r.vBranchNumber).padStart(5, "0") : "";
       html += "<section>";
       if (found) {
-        html += `<div class="verdict"><span class="chip ok">VAT-registered</span><span class="big">${esc(r.vBranchName || r.vName)}</span></div>`;
+        const fullName = [r.vtitleName, r.vName, r.vSurname].filter(real).join(" ");
+        const branchName = [r.vBranchTitleName, r.vBranchName].filter(real).join(" ");
+        const isHead = Number(branch) === 0;
+        html += `<div class="verdict"><span class="chip ok">VAT-registered</span><span class="big">${esc(fullName)}</span></div>`;
         html += dl([
           ["Tax ID", group(r.vNID), true],
-          ["Registered name", [r.vtitleName, r.vName].filter(real).join(" ")],
-          ["Branch", branch === "00000" ? "00000 (head office)" : branch, true],
+          ["Branch", isHead ? branch + " (สำนักงานใหญ่)" : branch + " (สาขา " + Number(branch) + ")", true],
+          ["Branch name", branchName && branchName !== fullName ? branchName : ""],
           ["Address", addressOf(r)],
           ["VAT registered since", beDate(r.vBusinessFirstDate)]
         ]);
@@ -350,6 +354,12 @@ const EX = {
     s("vBuildingName","เอ.เอ. แคปปิตอล รัชดา") + s("vFloorNumber","6-7") + s("vVillageName","-") + s("vRoomNumber","-") + s("vHouseNumber","55") +
     s("vMooNumber","-") + s("vSoiName","-") + s("vStreetName","รัชดาภิเษก") + s("vThambol","ดินแดง") + s("vAmphur","ดินแดง") + s("vProvince","กรุงเทพมหานคร") +
     s("vPostCode","10400") + s("vBusinessFirstDate","2540-05-28") + s("vYaek","-") + "<vmsgerr />" + "</ServiceResult></ServiceResponse>" + T,
+  branch: HEAD + '<ServiceResponse xmlns="https://rdws.rd.go.th/serviceRD3/vatserviceRD3"><ServiceResult>' +
+    s("vNID","0107542000011") + "<vtin />" + s("vtitleName","บริษัท") + s("vName","ซีพี ออลล์ จำกัด (มหาชน)") + s("vSurname","-") +
+    s("vBranchTitleName","บริษัท") + s("vBranchName","ซีพี ออลล์ จำกัด (มหาชน)") + '<vBranchNumber><anyType xsi:type="xsd:int">1</anyType></vBranchNumber>' +
+    s("vBuildingName","พัฒน์พงศ์") + s("vFloorNumber","-") + s("vVillageName","-") + s("vRoomNumber","-") + s("vHouseNumber","1") +
+    s("vMooNumber","-") + s("vSoiName","-") + s("vStreetName","พัฒน์พงศ์ 1-2") + s("vThambol","สุริยวงศ์") + s("vAmphur","บางรัก") + s("vProvince","กรุงเทพมหานคร") +
+    s("vPostCode","10500") + s("vBusinessFirstDate","2535-01-01") + s("vYaek","-") + "<vmsgerr />" + "</ServiceResult></ServiceResponse>" + T,
   none: HEAD + '<ServiceResponse xmlns="https://rdws.rd.go.th/serviceRD3/vatserviceRD3"><ServiceResult><vNID /><vtin /><vtitleName /><vName /><vSurname /><vBranchTitleName /><vBranchName /><vBranchNumber /><vBuildingName /><vFloorNumber /><vVillageName /><vRoomNumber /><vHouseNumber /><vMooNumber /><vSoiName /><vStreetName /><vThambol /><vAmphur /><vProvince /><vPostCode /><vBusinessFirstDate /><vYaek />' +
     s("vmsgerr","ไม่พบข้อมูลที่ต้องการค้นหา &lt;br&gt; Data not found ") + "</ServiceResult></ServiceResponse>" + T,
   tin: HEAD + '<ServiceTINResponse xmlns="https://rdws.rd.go.th/serviceRD3/checktinpinservice"><ServiceTINResult><vMessageErr />' +
@@ -388,6 +398,7 @@ $("copyCurl").addEventListener("click", () => copy(curlText()));
 $("copyXml").addEventListener("click", () => copy(buildXml(svc(), digits($("tin").value))));
 $("reply").addEventListener("input", () => { source = "pasted"; renderResult(); });
 $("exVat").addEventListener("click", () => loadExample("vat"));
+$("exBranch").addEventListener("click", () => loadExample("branch"));
 $("exNone").addEventListener("click", () => loadExample("none"));
 $("exTin").addEventListener("click", () => loadExample("tin"));
 $("clear").addEventListener("click", () => { $("reply").value = ""; source = "pasted"; renderResult(); });

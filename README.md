@@ -9,7 +9,13 @@ Spec: https://www.rd.go.th/42535.html (public login `anonymous` / `anonymous`).
 
 **Live page:** https://johmphot.github.io/rd-tax-id-checker/
 
-## What's new (v1.2.1)
+## What's new (v1.2.2)
+
+- The full registered name (for example "บริษัท … จำกัด") now sits next to the VAT-registered badge.
+- Branch shows "00000 (สำนักงานใหญ่)" for the head office and "00001 (สาขา 1)" for a branch.
+- New Advanced mode example: a branch office (captured reply for CP ALL, branch 1).
+
+## v1.2.1
 
 - Address shown in Thai order with Thai labels: อาคาร, ห้อง, ชั้น, หมู่บ้าน, หมู่, ซอย, ถนน, then แขวง/เขต for Bangkok or ตำบล/อำเภอ for other provinces, then province and postcode.
 
