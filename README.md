@@ -9,7 +9,11 @@ Spec: https://www.rd.go.th/42535.html (public login `anonymous` / `anonymous`).
 
 **Live page:** https://johmphot.github.io/rd-tax-id-checker/
 
-## What's new (v1.2.0)
+## What's new (v1.2.1)
+
+- Address shown in Thai order with Thai labels: อาคาร, ห้อง, ชั้น, หมู่บ้าน, หมู่, ซอย, ถนน, then แขวง/เขต for Bangkok or ตำบล/อำเภอ for other provinces, then province and postcode.
+
+## v1.2.0
 
 - Simpler page: type the Tax ID, choose what you want to know ("Is it VAT-registered?" or "Does the Tax ID exist?"), press **Check with RD**, read the result.
 - The request, the raw reply box, the examples and the version moved behind the **Advanced mode** switch (remembered per browser).

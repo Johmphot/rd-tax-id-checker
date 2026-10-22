@@ -151,7 +151,7 @@ pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; 
 </div>
 
 <script>
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.2.1";
 // "" = same host (local relay). On GitHub Pages, config.js sets window.RD_API_BASE to the Worker's address.
 const API_BASE = (window.RD_API_BASE || "").replace(/\/$/, "");
 const ENDPOINTS = {
@@ -267,21 +267,24 @@ function parseReply(text) {
   return { kind: "vat", rows };
 }
 
-function addressOf(r) {
-  const bits = [];
-  if (real(r.vHouseNumber)) bits.push(r.vHouseNumber);
-  if (real(r.vRoomNumber)) bits.push("Room " + r.vRoomNumber);
-  if (real(r.vFloorNumber)) bits.push("Floor " + r.vFloorNumber);
-  if (real(r.vBuildingName)) bits.push(r.vBuildingName);
-  if (real(r.vVillageName)) bits.push(r.vVillageName);
-  if (real(r.vMooNumber)) bits.push("Moo " + r.vMooNumber);
-  if (real(r.vSoiName)) bits.push("Soi " + r.vSoiName);
-  if (real(r.vStreetName)) bits.push("Road " + r.vStreetName);
-  if (real(r.vThambol)) bits.push(r.vThambol);
-  if (real(r.vAmphur)) bits.push(r.vAmphur);
-  if (real(r.vProvince)) bits.push(r.vProvince);
-  if (real(r.vPostCode)) bits.push(r.vPostCode);
-  return bits.join(" ");
+function addressOf(r) { // Thai address order: 55 อาคาร … ชั้น … ถนน… แขวง… เขต… จังหวัด รหัสไปรษณีย์
+  const lead = (label, v) => !real(v) ? "" : v.startsWith(label) ? v : label + v;       // ถนนรัชดาภิเษก
+  const spaced = (label, v) => !real(v) ? "" : v.startsWith(label) ? v : label + " " + v; // ชั้น 6-7
+  const bkk = (r.vProvince || "").includes("กรุงเทพ");
+  return [
+    real(r.vHouseNumber) ? r.vHouseNumber : "",
+    spaced("อาคาร", r.vBuildingName),
+    spaced("ห้อง", r.vRoomNumber),
+    spaced("ชั้น", r.vFloorNumber),
+    spaced("หมู่บ้าน", r.vVillageName),
+    spaced("หมู่", r.vMooNumber),
+    lead("ซอย", r.vSoiName),
+    lead("ถนน", r.vStreetName),
+    lead(bkk ? "แขวง" : "ตำบล", r.vThambol),
+    lead(bkk ? "เขต" : "อำเภอ", r.vAmphur),
+    real(r.vProvince) ? r.vProvince : "",
+    real(r.vPostCode) ? r.vPostCode : ""
+  ].filter(Boolean).join(" ");
 }
 function dl(pairs) {
   return "<dl>" + pairs.filter(p => p[1] !== "" && p[1] != null).map(([k, v, m]) => `<dt>${k}</dt><dd${m ? ' class="mono"' : ""}>${esc(v)}</dd>`).join("") + "</dl>";
