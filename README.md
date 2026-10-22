@@ -9,7 +9,13 @@ Spec: https://www.rd.go.th/42535.html (public login `anonymous` / `anonymous`).
 
 **Live page:** https://johmphot.github.io/rd-tax-id-checker/
 
-## What's new (v1.2.2)
+## What's new (v1.3.0)
+
+- **Branch number** box (optional, VAT service only): leave empty for the head office, enter 1 for branch 00001, and so on. The Revenue Department returns that branch's own address.
+- The page warns if RD returns a different branch than the one asked for, and says "No branch 0000N for this Tax ID" when the branch does not exist.
+- The Worker and the local relay accept `branch=<1-5 digits>`. **Redeploy the Worker** (`cd worker && npx wrangler deploy`) for branch lookups to work on the hosted page.
+
+## v1.2.2
 
 - The full registered name (for example "บริษัท … จำกัด") now sits next to the VAT-registered badge.
 - Branch shows "00000 (สำนักงานใหญ่)" for the head office and "00001 (สาขา 1)" for a branch.

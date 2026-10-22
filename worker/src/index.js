@@ -10,7 +10,7 @@ const WINDOW_MS = 1000;
 const SERVICES = {
   vat: {
     url: `${BASE}/vatserviceRD3.asmx`,
-    body: tin => `<soap:Envelope ${SOAP} xmlns:vat="${BASE}/vatserviceRD3"><soap:Header/><soap:Body><vat:Service><vat:username>anonymous</vat:username><vat:password>anonymous</vat:password><vat:TIN>${tin}</vat:TIN><vat:Name></vat:Name><vat:ProvinceCode>0</vat:ProvinceCode><vat:BranchNumber>0</vat:BranchNumber><vat:AmphurCode>0</vat:AmphurCode></vat:Service></soap:Body></soap:Envelope>`
+    body: (tin, branch = 0) => `<soap:Envelope ${SOAP} xmlns:vat="${BASE}/vatserviceRD3"><soap:Header/><soap:Body><vat:Service><vat:username>anonymous</vat:username><vat:password>anonymous</vat:password><vat:TIN>${tin}</vat:TIN><vat:Name></vat:Name><vat:ProvinceCode>0</vat:ProvinceCode><vat:BranchNumber>${branch}</vat:BranchNumber><vat:AmphurCode>0</vat:AmphurCode></vat:Service></soap:Body></soap:Envelope>`
   },
   tin: {
     url: `${BASE}/checktinpinservice.asmx`,
@@ -56,6 +56,9 @@ export default {
     if (!svc) return json(env, 400, "svc must be vat or tin");
     if (!/^\d{13}$/.test(tin)) return json(env, 400, "tin must be exactly 13 digits");
 
+    const branchParam = url.searchParams.get("branch");
+    if (branchParam !== null && !/^\d{1,5}$/.test(branchParam)) return json(env, 400, "branch must be 1 to 5 digits");
+
     const ip = req.headers.get("CF-Connecting-IP") || "unknown";
     const verdict = await env.LIMITER.get(env.LIMITER.idFromName(ip)).fetch("https://limiter/");
     if (verdict.status === 429) return json(env, 429, "Too many checks, max 3 per second", { "Retry-After": "1" });
@@ -64,7 +67,7 @@ export default {
       const r = await fetch(svc.url, {
         method: "POST",
         headers: { "Content-Type": "application/soap+xml; charset=utf-8" },
-        body: svc.body(tin),
+        body: svc.body(tin, branchParam === null ? 0 : Number(branchParam)),
         signal: AbortSignal.timeout(20000)
       });
       return reply(env, 200, "application/xml; charset=utf-8", await r.text());

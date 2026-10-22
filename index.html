@@ -111,6 +111,12 @@ pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; 
       </div>
     </fieldset>
 
+    <div id="branchRow" style="margin-top:18px">
+      <label class="field" for="branch">Branch number (optional)</label>
+      <input type="text" id="branch" inputmode="numeric" autocomplete="off" placeholder="Empty = head office" maxlength="5" style="max-width:12rem">
+      <p class="hint">Leave empty for the head office (สำนักงานใหญ่). For branch 00001 enter 1, and so on.</p>
+    </div>
+
     <div class="runrow">
       <button class="btn primary" id="run" type="button">Check with RD</button>
       <span class="msg" id="runMsg" aria-live="polite"></span>
@@ -152,7 +158,7 @@ pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; 
 </div>
 
 <script>
-const APP_VERSION = "1.2.2";
+const APP_VERSION = "1.3.0";
 // "" = same host (local relay). On GitHub Pages, config.js sets window.RD_API_BASE to the Worker's address.
 const API_BASE = (window.RD_API_BASE || "").replace(/\/$/, "");
 const ENDPOINTS = {
@@ -161,7 +167,10 @@ const ENDPOINTS = {
 };
 const $ = id => document.getElementById(id);
 const svc = () => document.querySelector('input[name="svc"]:checked').value;
+// Branch number is optional and applies to the VAT service only.
+const branchVal = () => svc() !== "vat" ? "" : $("branch").value.replace(/\D/g, "").slice(0, 5).replace(/^0+(?=\d)/, "");
 let source = "example"; // example | live | pasted
+let askedBranch = "";   // branch requested by the last live check
 
 function digits(s) { return s.replace(/\D/g, "").slice(0, 13); }
 function group(d) { // 1-4-5-2-1
@@ -175,7 +184,7 @@ function checkDigitOk(d) {
   return (11 - (sum % 11)) % 10 === Number(d[12]);
 }
 
-function buildXml(kind, tin) {
+function buildXml(kind, tin, branch) {
   const t = tin || "0000000000000";
   if (kind === "tin") return `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:chec="https://rdws.rd.go.th/serviceRD3/checktinpinservice">
   <soap:Header/>
@@ -196,7 +205,7 @@ function buildXml(kind, tin) {
       <vat:TIN>${t}</vat:TIN>
       <vat:Name></vat:Name>
       <vat:ProvinceCode>0</vat:ProvinceCode>
-      <vat:BranchNumber>0</vat:BranchNumber>
+      <vat:BranchNumber>${branch || 0}</vat:BranchNumber>
       <vat:AmphurCode>0</vat:AmphurCode>
     </vat:Service>
   </soap:Body>
@@ -205,7 +214,8 @@ function buildXml(kind, tin) {
 
 function renderRequest() {
   $("endpoint").textContent = "POST " + ENDPOINTS[svc()];
-  $("xml").textContent = buildXml(svc(), digits($("tin").value));
+  $("xml").textContent = buildXml(svc(), digits($("tin").value), branchVal());
+  $("branchRow").hidden = svc() !== "vat";
 }
 
 function renderChip() {
@@ -216,7 +226,7 @@ function renderChip() {
 }
 
 function curlText() {
-  return `curl -s -X POST '${ENDPOINTS[svc()]}' \\\n  -H 'Content-Type: application/soap+xml; charset=utf-8' \\\n  --data '${buildXml(svc(), digits($("tin").value))}'`;
+  return `curl -s -X POST '${ENDPOINTS[svc()]}' \\\n  -H 'Content-Type: application/soap+xml; charset=utf-8' \\\n  --data '${buildXml(svc(), digits($("tin").value), branchVal())}'`;
 }
 async function copy(text) {
   try { await navigator.clipboard.writeText(text); $("copyMsg").textContent = "Copied."; }
@@ -321,9 +331,11 @@ function renderResult() {
           ["Address", addressOf(r)],
           ["VAT registered since", beDate(r.vBusinessFirstDate)]
         ]);
+        if (source === "live" && askedBranch && Number(askedBranch) !== Number(branch)) html += `<p class="err">You asked for branch ${esc(String(askedBranch).padStart(5, "0"))} but RD returned ${esc(branch)}. The checking service may need updating to look up branches.</p>`;
         if (source === "pasted" && typed.length === 13 && typed !== r.vNID) html += `<p class="err">This reply is for ${esc(group(r.vNID))}, not the number typed above.</p>`;
       } else {
-        html += `<div class="verdict"><span class="chip warn">Not found</span><span class="big">Not VAT-registered, or the number is wrong</span></div>`;
+        const wantedBranch = source === "live" && askedBranch ? String(askedBranch).padStart(5, "0") : "";
+        html += `<div class="verdict"><span class="chip warn">Not found</span><span class="big">${wantedBranch ? "No branch " + wantedBranch + " for this Tax ID" : "Not VAT-registered, or the number is wrong"}</span></div>`;
         html += `<p class="hint" style="margin:0">The service answers with success and empty fields${msg ? ": " + esc(msg) : ""}. Recheck the number; if it is right, this business is not a VAT registrant, so it is not a Company for the Tax Invoice setting.</p>`;
       }
       html += "</section>";
@@ -374,11 +386,12 @@ async function runCheck() {
   if (!checkDigitOk(d)) { msg.textContent = "The check digit is wrong, so RD would not find this number. Recheck it."; return; }
   btn.disabled = true; msg.textContent = "Asking the Revenue Department…";
   try {
-    const r = await fetch(`${API_BASE}/api/check?svc=${svc()}&tin=${d}`);
+    const b = branchVal();
+    const r = await fetch(`${API_BASE}/api/check?svc=${svc()}&tin=${d}${b ? "&branch=" + b : ""}`);
     const body = await r.text();
     if (r.status === 429) throw new Error("Too many checks at once. Wait a second and try again.");
     if (!r.ok) { let m = body; try { m = JSON.parse(body).error; } catch (e) {} throw new Error(m); }
-    $("reply").value = body; source = "live"; renderResult();
+    askedBranch = b; $("reply").value = body; source = "live"; renderResult();
     msg.textContent = "Checked " + new Date().toLocaleTimeString();
   } catch (e) {
     msg.textContent = (e instanceof TypeError ? (API_BASE ? "Could not reach the checking service. Try again in a moment. " : "Could not reach the relay. Is relay.mjs running? ") : "") + (e.message || "");
@@ -391,11 +404,17 @@ $("tin").addEventListener("input", e => {
   renderChip(); renderRequest();
   if (source !== "pasted") { $("reply").value = ""; $("runMsg").textContent = ""; renderResult(); } // the old result is for another number
 });
+$("branch").addEventListener("input", e => {
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 5);
+  renderRequest();
+  if (source !== "pasted") { $("reply").value = ""; $("runMsg").textContent = ""; renderResult(); }
+});
 $("tin").addEventListener("keydown", e => { if (e.key === "Enter") runCheck(); });
+$("branch").addEventListener("keydown", e => { if (e.key === "Enter") runCheck(); });
 document.querySelectorAll('input[name="svc"]').forEach(r => r.addEventListener("change", renderRequest));
 $("run").addEventListener("click", runCheck);
 $("copyCurl").addEventListener("click", () => copy(curlText()));
-$("copyXml").addEventListener("click", () => copy(buildXml(svc(), digits($("tin").value))));
+$("copyXml").addEventListener("click", () => copy(buildXml(svc(), digits($("tin").value), branchVal())));
 $("reply").addEventListener("input", () => { source = "pasted"; renderResult(); });
 $("exVat").addEventListener("click", () => loadExample("vat"));
 $("exBranch").addEventListener("click", () => loadExample("branch"));
@@ -405,6 +424,7 @@ $("clear").addEventListener("click", () => { $("reply").value = ""; source = "pa
 
 $("adv").addEventListener("change", e => {
   $("advBox").hidden = !e.target.checked;
+  renderRequest();
   try { localStorage.setItem("rdAdvanced", e.target.checked ? "1" : "0"); } catch (err) {}
 });
 try { if (localStorage.getItem("rdAdvanced") === "1") { $("adv").checked = true; $("advBox").hidden = false; } } catch (err) {}
